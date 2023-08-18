@@ -1,13 +1,22 @@
 use std::cmp::min;
-use std::ops::{Index, IndexMut};
+use std::ops::{Add, AddAssign, Index, IndexMut, Mul};
 
-pub struct Mat {
-    rows: usize,
-    cols: usize,
-    data: Vec<f64>,
+pub trait Number:
+    Copy + From<u8> + PartialEq + PartialOrd + Sized + Mul<Self, Output = Self> + Add + AddAssign
+{
+}
+impl<T> Number for T where
+    T: Copy + From<u8> + PartialEq + PartialOrd + Mul<Self, Output = Self> + Add + AddAssign
+{
 }
 
-impl Mat {
+pub struct Mat<T: Number> {
+    rows: usize,
+    cols: usize,
+    data: Vec<T>,
+}
+
+impl<T: Number> Mat<T> {
     pub fn rows(&self) -> usize {
         return self.rows;
     }
@@ -15,33 +24,33 @@ impl Mat {
         return self.cols;
     }
 
-    pub fn zeros(rows: usize, cols: usize) -> Mat {
+    pub fn zeros(rows: usize, cols: usize) -> Mat<T> {
         let buf_len = rows * cols;
-        let data = vec![0.0; buf_len];
+        let data = vec![T::from(0); buf_len];
         return Mat { rows, cols, data };
     }
 
-    pub unsafe fn uninit(rows: usize, cols: usize) -> Mat {
+    pub unsafe fn uninit(rows: usize, cols: usize) -> Mat<T> {
         let buf_len = rows * cols;
         let mut data = Vec::with_capacity(buf_len);
         data.set_len(buf_len);
         return Mat { rows, cols, data };
     }
-    pub fn identity(rows: usize, cols: usize) -> Mat {
+    pub fn identity(rows: usize, cols: usize) -> Mat<T> {
         let buf_len = rows * cols;
         let mut data = Vec::with_capacity(buf_len);
         for i in 0..rows {
             for j in 0..cols {
                 if i == j {
-                    data.push(1.0);
+                    data.push(T::from(1));
                 } else {
-                    data.push(0.0);
+                    data.push(T::from(0));
                 }
             }
         }
         return Mat { rows, cols, data };
     }
-    pub fn get_transposed(&self) -> Mat {
+    pub fn get_transposed(&self) -> Mat<T> {
         let mut res = Mat::zeros(self.rows, self.cols);
         for i in 0..self.rows {
             for j in 0..self.cols {
@@ -52,13 +61,13 @@ impl Mat {
     }
 }
 
-pub fn mul_normal(m1: &Mat, m2: &Mat) -> Mat {
+pub fn mul_normal<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
     assert_eq!(m1.cols, m2.rows);
     let mut res = unsafe { Mat::uninit(m1.rows, m2.cols) };
 
     for i in 0..res.rows {
         for j in 0..res.cols {
-            let mut val = 0.0;
+            let mut val = T::from(0);
             for k in 0..m1.cols {
                 val += m1[i][k] * m2[k][j];
             }
@@ -68,7 +77,7 @@ pub fn mul_normal(m1: &Mat, m2: &Mat) -> Mat {
     return res;
 }
 
-pub fn mul_transposed(m1: &Mat, m2: &Mat) -> Mat {
+pub fn mul_transposed<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
     assert_eq!(m1.cols, m2.rows);
 
     let mut res = unsafe { Mat::uninit(m1.rows, m2.cols) };
@@ -76,7 +85,7 @@ pub fn mul_transposed(m1: &Mat, m2: &Mat) -> Mat {
 
     for i in 0..res.rows {
         for j in 0..res.cols {
-            let mut val = 0.0;
+            let mut val = T::from(0);
             for k in 0..m1.cols {
                 val += m1[i][k] * transposed[j][k];
             }
@@ -86,20 +95,21 @@ pub fn mul_transposed(m1: &Mat, m2: &Mat) -> Mat {
     return res;
 }
 
-pub fn mul_unrolled(m1: &Mat, m2: &Mat) -> Mat {
+pub fn mul_unrolled<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
     assert_eq!(m1.cols, m2.rows);
 
     let mut res = Mat::zeros(m1.rows, m2.cols);
 
     const CACHE_LINE_SIZE: usize = 64;
-    const VALS_PER_CACHE_LINE: usize = CACHE_LINE_SIZE / std::mem::size_of::<f64>();
+    let size = std::mem::size_of::<T>();
+    let vals_per_cache_line: usize = CACHE_LINE_SIZE / size;
 
-    for i in (0..res.rows).step_by(VALS_PER_CACHE_LINE) {
-        for j in (0..res.cols).step_by(VALS_PER_CACHE_LINE) {
-            for k in (0..m1.cols).step_by(VALS_PER_CACHE_LINE) {
-                for i2 in i..min(i + VALS_PER_CACHE_LINE, res.rows) {
-                    for k2 in k..min(k + VALS_PER_CACHE_LINE, m1.cols) {
-                        for j2 in j..min(j + VALS_PER_CACHE_LINE, res.cols) {
+    for i in (0..res.rows).step_by(vals_per_cache_line) {
+        for j in (0..res.cols).step_by(vals_per_cache_line) {
+            for k in (0..m1.cols).step_by(vals_per_cache_line) {
+                for i2 in i..min(i + vals_per_cache_line, res.rows) {
+                    for k2 in k..min(k + vals_per_cache_line, m1.cols) {
+                        for j2 in j..min(j + vals_per_cache_line, res.cols) {
                             res[i2][j2] += m1[i2][k2] * m2[k2][j2];
                         }
                     }
@@ -110,15 +120,15 @@ pub fn mul_unrolled(m1: &Mat, m2: &Mat) -> Mat {
     return res;
 }
 
-impl<'a> Index<usize> for Mat {
-    type Output = [f64];
+impl<'a, T: Number> Index<usize> for Mat<T> {
+    type Output = [T];
 
     fn index(&self, index: usize) -> &Self::Output {
         return &self.data[index * self.cols..index * self.cols + self.cols];
     }
 }
 
-impl<'a> IndexMut<usize> for Mat {
+impl<'a, T: Number> IndexMut<usize> for Mat<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         return &mut self.data[index * self.cols..index * self.cols + self.cols];
     }

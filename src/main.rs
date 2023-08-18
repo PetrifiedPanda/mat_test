@@ -1,23 +1,25 @@
 mod mat;
 
+use std::fmt::{Debug, Display};
 use std::time::Instant;
 
-use mat::Mat;
+use mat::{Mat, Number};
 
+use rand::distributions::uniform::SampleUniform;
 use rand::rngs::ThreadRng;
 use rand::Rng;
 
-fn random_mat(rng: &mut ThreadRng, rows: usize, cols: usize) -> Mat {
+fn random_mat<T: Number + SampleUniform>(rng: &mut ThreadRng, rows: usize, cols: usize) -> Mat<T> {
     let mut res = unsafe { Mat::uninit(rows, cols) };
     for i in 0..res.rows() {
         for j in 0..res.cols() {
-            res[i][j] = rng.gen_range(0.0..1000.0);
+            res[i][j] = rng.gen_range(T::from(0)..T::from(100));
         }
     }
     return res;
 }
 
-fn print_mat(mat: &Mat) {
+fn print_mat<T: Number + Display>(mat: &Mat<T>) {
     for i in 0..mat.rows() {
         for j in 0..mat.cols() {
             print!("{} ", mat[i][j]);
@@ -26,7 +28,7 @@ fn print_mat(mat: &Mat) {
     }
 }
 
-fn compare_mats(m1: &Mat, m2: &Mat) {
+fn compare_mats<T: Number + Debug>(m1: &Mat<T>, m2: &Mat<T>) {
     assert_eq!(m1.rows(), m2.rows());
     assert_eq!(m1.cols(), m2.cols());
     for i in 0..m1.rows() {
@@ -36,14 +38,17 @@ fn compare_mats(m1: &Mat, m2: &Mat) {
     }
 }
 
-fn main() {
+fn mat_test<T: Number + Debug + SampleUniform>(size: usize) {
     let mut rng = rand::thread_rng();
-    let dim = 1000;
     let now = Instant::now();
-    let m1 = random_mat(&mut rng, dim, dim);
-    let m2 = random_mat(&mut rng, dim, dim);
+    let m1 = random_mat::<T>(&mut rng, size, size);
+    let m2 = random_mat::<T>(&mut rng, size, size);
     let elapsed = now.elapsed();
-    println!("Initializing took {:?}", elapsed);
+    println!(
+        "Initializing {} took {:?}",
+        std::any::type_name::<T>(),
+        elapsed
+    );
 
     let now = Instant::now();
     let res1 = mat::mul_normal(&m1, &m2);
@@ -61,4 +66,19 @@ fn main() {
     println!("Unrolled mul took {:?}", elapsed);
     compare_mats(&res1, &res2);
     compare_mats(&res1, &res3);
+    println!("");
+}
+
+fn main() {
+    mat_test::<f32>(1000);
+    mat_test::<f64>(1000);
+    mat_test::<u8>(1000);
+    mat_test::<u16>(1000);
+    mat_test::<i16>(1000);
+    mat_test::<u32>(1000);
+    mat_test::<i32>(1000);
+    mat_test::<u64>(1000);
+    mat_test::<i64>(1000);
+    mat_test::<u128>(1000);
+    mat_test::<i128>(1000);
 }
