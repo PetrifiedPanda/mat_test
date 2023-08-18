@@ -95,6 +95,24 @@ pub fn mul_transposed<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
     return res;
 }
 
+fn unrolled_step<T: Number>(
+    res: &mut Mat<T>,
+    m1: &Mat<T>,
+    m2: &Mat<T>,
+    outer_i: usize,
+    outer_j: usize,
+    outer_k: usize,
+    stride: usize,
+) {
+    for i in outer_i..min(outer_i + stride, res.rows) {
+        for k in outer_k..min(outer_k + stride, m1.cols) {
+            for j in outer_j..min(outer_j + stride, res.cols) {
+                res[i][j] += m1[i][k] * m2[k][j];
+            }
+        }
+    }
+}
+
 pub fn mul_unrolled<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
     assert_eq!(m1.cols, m2.rows);
 
@@ -107,13 +125,7 @@ pub fn mul_unrolled<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
     for i in (0..res.rows).step_by(vals_per_cache_line) {
         for j in (0..res.cols).step_by(vals_per_cache_line) {
             for k in (0..m1.cols).step_by(vals_per_cache_line) {
-                for i2 in i..min(i + vals_per_cache_line, res.rows) {
-                    for k2 in k..min(k + vals_per_cache_line, m1.cols) {
-                        for j2 in j..min(j + vals_per_cache_line, res.cols) {
-                            res[i2][j2] += m1[i2][k2] * m2[k2][j2];
-                        }
-                    }
-                }
+                unrolled_step(&mut res, m1, m2, i, j, k, vals_per_cache_line);
             }
         }
     }
