@@ -70,15 +70,16 @@ fn mat_test<T: Number + Debug + SampleUniform>(size: usize) {
 }
 
 fn main() {
-    mat_test::<f32>(1000);
-    mat_test::<f64>(1000);
-    mat_test::<u8>(1000);
-    mat_test::<u16>(1000);
-    mat_test::<i16>(1000);
-    mat_test::<u32>(1000);
-    mat_test::<i32>(1000);
-    mat_test::<u64>(1000);
-    mat_test::<i64>(1000);
-    mat_test::<u128>(1000);
-    mat_test::<i128>(1000);
+    let size = 1000;
+    mat_test::<f32>(size);
+    mat_test::<f64>(size);
+    mat_test::<u8>(size);
+    mat_test::<u16>(size);
+    mat_test::<i16>(size);
+    mat_test::<u32>(size);
+    mat_test::<i32>(size);
+    mat_test::<u64>(size);
+    mat_test::<i64>(size);
+    mat_test::<u128>(size);
+    mat_test::<i128>(size);
 }
