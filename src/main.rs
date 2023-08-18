@@ -60,17 +60,35 @@ fn mat_test<T: Number + Debug + SampleUniform>(size: usize) {
     let elapsed = now.elapsed();
     println!("Transposed mul took {:?}", elapsed);
 
+    let m2_trans = m2.get_transposed();
     let now = Instant::now();
-    let res3 = mat::mul_unrolled(&m1, &m2);
+    let res3 = mat::mul_with_transposed(&m1, &m2_trans);
+    println!("Transposed without copy took {:?}", now.elapsed());
+
+    let now = Instant::now();
+    let res4 = mat::mul_unrolled(&m1, &m2);
     let elapsed = now.elapsed();
     println!("Unrolled mul took {:?}", elapsed);
+
+    let now = Instant::now();
+    let res5 = mat::mul_unrolleder(&m1, &m2);
+    let elapsed = now.elapsed();
+    println!("Unrolleder mul took {:?}", elapsed);
     compare_mats(&res1, &res2);
     compare_mats(&res1, &res3);
+    compare_mats(&res1, &res4);
+    compare_mats(&res1, &res5);
     println!("");
 }
 
 fn main() {
-    let size = 1000;
+    let args: Vec<String> = std::env::args().collect();
+    let size;
+    if args.len() < 2 {
+        size = 500;
+    } else {
+        size = args[1].parse().expect("Invalid size");
+    }
     mat_test::<f32>(size);
     mat_test::<f64>(size);
     mat_test::<u8>(size);

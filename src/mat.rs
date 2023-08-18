@@ -77,22 +77,27 @@ pub fn mul_normal<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
     return res;
 }
 
-pub fn mul_transposed<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
-    assert_eq!(m1.cols, m2.rows);
+pub fn mul_with_transposed<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
+    assert_eq!(m1.cols, m2.cols);
 
     let mut res = unsafe { Mat::uninit(m1.rows, m2.cols) };
-    let transposed = m2.get_transposed();
-
     for i in 0..res.rows {
         for j in 0..res.cols {
             let mut val = T::from(0);
             for k in 0..m1.cols {
-                val += m1[i][k] * transposed[j][k];
+                val += m1[i][k] * m2[j][k];
             }
             res[i][j] = val;
         }
     }
     return res;
+}
+
+pub fn mul_transposed<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
+    assert_eq!(m1.cols, m2.rows);
+
+    let transposed = m2.get_transposed();
+    return mul_with_transposed(m1, &transposed);
 }
 
 fn unrolled_step<T: Number>(
@@ -129,6 +134,148 @@ pub fn mul_unrolled<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
             }
         }
     }
+    return res;
+}
+
+fn unrolleder_step<T: Number>(
+    res: &mut Mat<T>,
+    m1: &Mat<T>,
+    m2: &Mat<T>,
+    outer_i: usize,
+    outer_j: usize,
+    outer_k: usize,
+    stride_i: usize,
+    stride_j: usize,
+    stride_k: usize,
+) {
+    for i in outer_i..outer_i + stride_i {
+        for k in outer_k..outer_k + stride_k {
+            for j in outer_j..outer_j + stride_j {
+                res[i][j] += m1[i][k] * m2[k][j];
+            }
+        }
+    }
+}
+
+pub fn mul_unrolleder<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
+    assert_eq!(m1.cols, m2.rows);
+
+    let mut res = Mat::zeros(m1.rows, m2.cols);
+
+    const CACHE_LINE_SIZE: usize = 64;
+    let size = std::mem::size_of::<T>();
+    let vals_per_cache_line: usize = CACHE_LINE_SIZE / size;
+
+    let i_limit = res.rows / vals_per_cache_line * vals_per_cache_line;
+    let j_limit = res.cols / vals_per_cache_line * vals_per_cache_line;
+    let k_limit = m1.cols / vals_per_cache_line * vals_per_cache_line;
+
+    let i_remainder = res.rows - i_limit;
+    let j_remainder = res.cols - j_limit;
+    let k_remainder = m1.cols - k_limit;
+    for i in (0..i_limit).step_by(vals_per_cache_line) {
+        for j in (0..j_limit).step_by(vals_per_cache_line) {
+            for k in (0..k_limit).step_by(vals_per_cache_line) {
+                unrolleder_step(
+                    &mut res,
+                    m1,
+                    m2,
+                    i,
+                    j,
+                    k,
+                    vals_per_cache_line,
+                    vals_per_cache_line,
+                    vals_per_cache_line,
+                );
+            }
+            unrolleder_step(
+                &mut res,
+                m1,
+                m2,
+                i,
+                j,
+                k_limit,
+                vals_per_cache_line,
+                vals_per_cache_line,
+                k_remainder,
+            );
+        }
+        for k in (0..k_limit).step_by(vals_per_cache_line) {
+            unrolleder_step(
+                &mut res,
+                m1,
+                m2,
+                i,
+                j_limit,
+                k,
+                vals_per_cache_line,
+                j_remainder,
+                vals_per_cache_line,
+            );
+        }
+        unrolleder_step(
+            &mut res,
+            m1,
+            m2,
+            i,
+            j_limit,
+            k_limit,
+            vals_per_cache_line,
+            j_remainder,
+            k_remainder,
+        );
+    }
+
+    for j in (0..j_limit).step_by(vals_per_cache_line) {
+        for k in (0..k_limit).step_by(vals_per_cache_line) {
+            unrolleder_step(
+                &mut res,
+                m1,
+                m2,
+                i_limit,
+                j,
+                k,
+                i_remainder,
+                vals_per_cache_line,
+                vals_per_cache_line,
+            );
+        }
+        unrolleder_step(
+            &mut res,
+            m1,
+            m2,
+            i_limit,
+            j,
+            k_limit,
+            i_remainder,
+            vals_per_cache_line,
+            k_remainder,
+        );
+    }
+    for k in (0..k_limit).step_by(vals_per_cache_line) {
+        unrolleder_step(
+            &mut res,
+            m1,
+            m2,
+            i_limit,
+            j_limit,
+            k,
+            i_remainder,
+            j_remainder,
+            vals_per_cache_line,
+        );
+    }
+    unrolleder_step(
+        &mut res,
+        m1,
+        m2,
+        i_limit,
+        j_limit,
+        k_limit,
+        i_remainder,
+        j_remainder,
+        k_remainder,
+    );
     return res;
 }
 
