@@ -70,14 +70,9 @@ fn mat_test<T: Number + Debug + SampleUniform>(size: usize) {
     let elapsed = now.elapsed();
     println!("Unrolled mul took {:?}", elapsed);
 
-    let now = Instant::now();
-    let res5 = mat::mul_unrolleder(&m1, &m2);
-    let elapsed = now.elapsed();
-    println!("Unrolleder mul took {:?}", elapsed);
     compare_mats(&res1, &res2);
     compare_mats(&res1, &res3);
     compare_mats(&res1, &res4);
-    compare_mats(&res1, &res5);
     println!("");
 }
 

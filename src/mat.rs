@@ -61,6 +61,20 @@ impl<T: Number> Mat<T> {
     }
 }
 
+impl<'a, T: Number> Index<usize> for Mat<T> {
+    type Output = [T];
+
+    fn index(&self, index: usize) -> &Self::Output {
+        return &self.data[index * self.cols..index * self.cols + self.cols];
+    }
+}
+
+impl<'a, T: Number> IndexMut<usize> for Mat<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        return &mut self.data[index * self.cols..index * self.cols + self.cols];
+    }
+}
+
 pub fn mul_normal<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
     assert_eq!(m1.cols, m2.rows);
     let mut res = unsafe { Mat::uninit(m1.rows, m2.cols) };
@@ -154,141 +168,5 @@ fn unrolleder_step<T: Number>(
                 res[i][j] += m1[i][k] * m2[k][j];
             }
         }
-    }
-}
-
-pub fn mul_unrolleder<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
-    assert_eq!(m1.cols, m2.rows);
-
-    let mut res = Mat::zeros(m1.rows, m2.cols);
-
-    const CACHE_LINE_SIZE: usize = 64;
-    let size = std::mem::size_of::<T>();
-    let vals_per_cache_line: usize = CACHE_LINE_SIZE / size;
-
-    let i_limit = res.rows / vals_per_cache_line * vals_per_cache_line;
-    let j_limit = res.cols / vals_per_cache_line * vals_per_cache_line;
-    let k_limit = m1.cols / vals_per_cache_line * vals_per_cache_line;
-
-    let i_remainder = res.rows - i_limit;
-    let j_remainder = res.cols - j_limit;
-    let k_remainder = m1.cols - k_limit;
-    for i in (0..i_limit).step_by(vals_per_cache_line) {
-        for j in (0..j_limit).step_by(vals_per_cache_line) {
-            for k in (0..k_limit).step_by(vals_per_cache_line) {
-                unrolleder_step(
-                    &mut res,
-                    m1,
-                    m2,
-                    i,
-                    j,
-                    k,
-                    vals_per_cache_line,
-                    vals_per_cache_line,
-                    vals_per_cache_line,
-                );
-            }
-            unrolleder_step(
-                &mut res,
-                m1,
-                m2,
-                i,
-                j,
-                k_limit,
-                vals_per_cache_line,
-                vals_per_cache_line,
-                k_remainder,
-            );
-        }
-        for k in (0..k_limit).step_by(vals_per_cache_line) {
-            unrolleder_step(
-                &mut res,
-                m1,
-                m2,
-                i,
-                j_limit,
-                k,
-                vals_per_cache_line,
-                j_remainder,
-                vals_per_cache_line,
-            );
-        }
-        unrolleder_step(
-            &mut res,
-            m1,
-            m2,
-            i,
-            j_limit,
-            k_limit,
-            vals_per_cache_line,
-            j_remainder,
-            k_remainder,
-        );
-    }
-
-    for j in (0..j_limit).step_by(vals_per_cache_line) {
-        for k in (0..k_limit).step_by(vals_per_cache_line) {
-            unrolleder_step(
-                &mut res,
-                m1,
-                m2,
-                i_limit,
-                j,
-                k,
-                i_remainder,
-                vals_per_cache_line,
-                vals_per_cache_line,
-            );
-        }
-        unrolleder_step(
-            &mut res,
-            m1,
-            m2,
-            i_limit,
-            j,
-            k_limit,
-            i_remainder,
-            vals_per_cache_line,
-            k_remainder,
-        );
-    }
-    for k in (0..k_limit).step_by(vals_per_cache_line) {
-        unrolleder_step(
-            &mut res,
-            m1,
-            m2,
-            i_limit,
-            j_limit,
-            k,
-            i_remainder,
-            j_remainder,
-            vals_per_cache_line,
-        );
-    }
-    unrolleder_step(
-        &mut res,
-        m1,
-        m2,
-        i_limit,
-        j_limit,
-        k_limit,
-        i_remainder,
-        j_remainder,
-        k_remainder,
-    );
-    return res;
-}
-
-impl<'a, T: Number> Index<usize> for Mat<T> {
-    type Output = [T];
-
-    fn index(&self, index: usize) -> &Self::Output {
-        return &self.data[index * self.cols..index * self.cols + self.cols];
-    }
-}
-
-impl<'a, T: Number> IndexMut<usize> for Mat<T> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        return &mut self.data[index * self.cols..index * self.cols + self.cols];
     }
 }
