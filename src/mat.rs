@@ -150,23 +150,3 @@ pub fn mul_unrolled<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
     }
     return res;
 }
-
-fn unrolleder_step<T: Number>(
-    res: &mut Mat<T>,
-    m1: &Mat<T>,
-    m2: &Mat<T>,
-    outer_i: usize,
-    outer_j: usize,
-    outer_k: usize,
-    stride_i: usize,
-    stride_j: usize,
-    stride_k: usize,
-) {
-    for i in outer_i..outer_i + stride_i {
-        for k in outer_k..outer_k + stride_k {
-            for j in outer_j..outer_j + stride_j {
-                res[i][j] += m1[i][k] * m2[k][j];
-            }
-        }
-    }
-}
