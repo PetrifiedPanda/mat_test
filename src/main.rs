@@ -60,19 +60,13 @@ fn mat_test<T: Number + Debug + SampleUniform>(size: usize) {
     let elapsed = now.elapsed();
     println!("Transposed mul took {:?}", elapsed);
 
-    let m2_trans = m2.get_transposed();
     let now = Instant::now();
-    let res3 = mat::mul_with_transposed(&m1, &m2_trans);
-    println!("Transposed without copy took {:?}", now.elapsed());
-
-    let now = Instant::now();
-    let res4 = mat::mul_unrolled(&m1, &m2);
+    let res3 = mat::mul_unrolled(&m1, &m2);
     let elapsed = now.elapsed();
     println!("Unrolled mul took {:?}", elapsed);
 
     compare_mats(&res1, &res2);
     compare_mats(&res1, &res3);
-    compare_mats(&res1, &res4);
     println!("");
 }
 

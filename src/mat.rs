@@ -91,7 +91,7 @@ pub fn mul_normal<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
     return res;
 }
 
-pub fn mul_with_transposed<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
+fn mul_with_transposed<T: Number>(m1: &Mat<T>, m2: &Mat<T>) -> Mat<T> {
     assert_eq!(m1.cols, m2.cols);
 
     let mut res = unsafe { Mat::uninit(m1.rows, m2.cols) };
