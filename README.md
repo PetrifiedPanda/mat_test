@@ -1,5 +1,5 @@
 # A test implementation of multiple ways of doing matrix multiplication
-This is loosely based on the implementation in Ulrich Drepper's excellent "What Every Programmer Should Know About Memory"
+This is loosely based on the implementation in Ulrich Drepper's excellent ["What Every Programmer Should Know About Memory"](https://people.freebsd.org/~lstewart/articles/cpumemory.pdf)
 
 There are 3 approaches implemented in this version
 - Naive implementation
